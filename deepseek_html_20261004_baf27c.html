@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Змейка</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+        height: 100%;
+        background: #a4d13b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: Arial, sans-serif;
+        overflow: hidden;
+        user-select: none;
+    }
+    #wrap {
+        position: relative;
+        width: 720px;
+        height: 540px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+    canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+    #hud {
+        position: absolute;
+        top: 15px;
+        left: 25px;
+        font-size: 34px;
+        font-weight: 900;
+        color: #3d6110;
+        text-shadow: 2px 2px 0 rgba(255,255,255,0.5);
+        pointer-events: none;
+    }
+    #best {
+        position: absolute;
+        top: 20px;
+        right: 25px;
+        font-size: 16px;
+        font-weight: bold;
+        color: #5a8c1a;
+        background: rgba(255,255,255,0.7);
+        padding: 6px 14px;
+        border-radius: 10px;
+        pointer-events: none;
+    }
+
+    /* ============ МЕНЮ ============ */
+    #menu {
+        position: absolute;
+        inset: 0;
+        background: rgba(30, 60, 15, 0.85);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        color: white;
+        text-align: center;
+        padding: 20px;
+        backdrop-filter: blur(4px);
+    }
+    #menu.hidden { display: none; }
+
+    #menu h1 {
+        font-size: 52px;
+        letter-spacing: 3px;
+        margin-bottom: 6px;
+        text-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    #menu .sub {
+        font-size: 15px;
+        opacity: 0.75;
+        margin-bottom: 30px;
+    }
+    #menu .skins-label {
+        font-size: 13px;
+        letter-spacing: 3px;
+        opacity: 0.7;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        font-weight: bold;
+    }
+    #skins {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 500px;
+    }
+    .skin {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 3px solid rgba(255,255,255,0.15);
+        transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .skin:hover {
+        transform: scale(1.1);
+        border-color: rgba(255,255,255,0.5);
+    }
+    .skin.selected {
+        border-color: #ffffff;
+        box-shadow: 0 0 0 4px rgba(255,255,255,0.3), 0 6px 20px rgba(0,0,0,0.3);
+        transform: scale(1.1);
+    }
+    .skin.selected::after {
+        content: '✓';
+        position: absolute;
+        color: white;
+        font-weight: 900;
+        font-size: 24px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .btn {
+        background: linear-gradient(180deg, #a4d13b, #6ba822);
+        color: #1a3300;
+        border: none;
+        padding: 16px 50px;
+        font-size: 20px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        border-radius: 50px;
+        cursor: pointer;
+        box-shadow: 0 6px 0 #3d6110, 0 12px 25px rgba(0,0,0,0.3);
+        transition: transform 0.1s, box-shadow 0.1s;
+        text-transform: uppercase;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:active {
+        transform: translateY(4px);
+        box-shadow: 0 2px 0 #3d6110;
+    }
+    .hint {
+        margin-top: 22px;
+        font-size: 12px;
+        opacity: 0.6;
+    }
+    .hint kbd {
+        background: rgba(255,255,255,0.15);
+        padding: 2px 7px;
+        border-radius: 5px;
+        font-family: inherit;
+        font-weight: bold;
+    }
+
+    /* Оверлей game over */
+    #gameover {
+        position: absolute;
+        inset: 0;
+        background: rgba(30, 60, 15, 0.85);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9;
+        color: white;
+        text-align: center;
+        backdrop-filter: blur(4px);
+    }
+    #gameover.show { display: flex; }
+    #gameover h2 {
+        font-size: 42px;
+        letter-spacing: 2px;
+        margin-bottom: 20px;
+    }
+    #gameover .score-big {
+        font-size: 72px;
+        font-weight: 900;
+        color: #a4d13b;
+        line-height: 1;
+        margin-bottom: 4px;
+        text-shadow: 0 6px 20px rgba(164,209,59,0.4);
+    }
+    #gameover .score-label {
+        font-size: 12px;
+        letter-spacing: 3px;
+        opacity: 0.6;
+        margin-bottom: 30px;
+    }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+    <canvas id="game" width="720" height="540"></canvas>
+    <div id="hud">0</div>
+    <div id="best">Рекорд: 0</div>
+
+    <!-- МЕНЮ -->
+    <div id="menu">
+        <h1>ЗМЕЙКА</h1>
+        <p class="sub">Выбери скин и играй</p>
+
+        <div class="skins-label">Скины</div>
+        <div id="skins"></div>
+
+        <button class="btn" id="playBtn">ИГРАТЬ</button>
+
+        <p class="hint">
+            <kbd>←↑→↓</kbd> или <kbd>WASD</kbd> · <kbd>Space</kbd> пауза
+        </p>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="gameover">
+        <h2>ИГРА ОКОНЧЕНА</h2>
+        <div class="score-big" id="goScore">0</div>
+        <div class="score-label">РЕЗУЛЬТАТ</div>
+        <button class="btn" id="retryBtn">ЗАНОВО</button>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// НАСТРОЙКИ
+// ============================================================
+var GRID = 36;
+var COLS = 20;
+var ROWS = 15;
+var STEP_MS = 140;
+var MIN_STEP_MS = 75;
+var SPEED_UP = 2;
+var START_LENGTH = 5; // ← длина змейки
+
+var COLOR_BG_A = '#b6e04b';
+var COLOR_BG_B = '#a4d13b';
+
+// ============================================================
+// СКИНЫ
+// ============================================================
+var SKINS = [
+    { id: 'blue',   name: 'Классика', body: '#3b76d6', head: '#4a86e8', shine: 'rgba(120,170,255,0.35)', shadow: 'rgba(30,60,120,0.35)' },
+    { id: 'green',  name: 'Лайм',     body: '#5aab2c', head: '#6fc93a', shine: 'rgba(200,255,150,0.35)', shadow: 'rgba(40,80,15,0.35)' },
+    { id: 'red',    name: 'Огонь',    body: '#d63b3b', head: '#e84b4b', shine: 'rgba(255,160,160,0.4)',  shadow: 'rgba(120,20,20,0.35)' },
+    { id: 'purple', name: 'Фиолет',   body: '#8e44ad', head: '#a55cc0', shine: 'rgba(220,170,255,0.35)', shadow: 'rgba(70,20,100,0.4)'  },
+    { id: 'orange', name: 'Апельсин', body: '#e88019', head: '#ff9a2b', shine: 'rgba(255,220,150,0.4)',  shadow: 'rgba(120,60,10,0.35)' },
+    { id: 'pink',   name: 'Розовый',  body: '#e91e63', head: '#ff4a87', shine: 'rgba(255,190,220,0.4)',  shadow: 'rgba(120,10,60,0.35)' },
+    { id: 'cyan',   name: 'Мятный',   body: '#1abc9c', head: '#22d1ae', shine: 'rgba(180,255,240,0.4)',  shadow: 'rgba(10,90,70,0.35)'  },
+    { id: 'dark',   name: 'Тёмный',   body: '#2c3e50', head: '#3d5266', shine: 'rgba(160,180,200,0.3)',  shadow: 'rgba(10,15,25,0.5)'   }
+];
+
+var currentSkin = SKINS[0];
+
+// ============================================================
+// ЭЛЕМЕНТЫ
+// ============================================================
+var canvas = document.getElementById('game');
+var ctx = canvas.getContext('2d');
+var hud = document.getElementById('hud');
+var bestEl = document.getElementById('best');
+var menu = document.getElementById('menu');
+var gameoverEl = document.getElementById('gameover');
+var skinsEl = document.getElementById('skins');
+var goScore = document.getElementById('goScore');
+
+// ============================================================
+// СОСТОЯНИЕ
+// ============================================================
+var snake, prevSnake, food;
+var dx, dy, nextDx, nextDy;
+var score, best = 0;
+var isStarted, isGameOver, isPaused;
+var lastMoveTime, moveProgress, stepInterval;
+var inMenu = true;
+
+// ============================================================
+// МЕНЮ — построение скинов
+// ============================================================
+function buildSkins() {
+    skinsEl.innerHTML = '';
+    for (var i = 0; i < SKINS.length; i++) {
+        (function(skin) {
+            var el = document.createElement('div');
+            el.className = 'skin';
+            el.title = skin.name;
+            el.style.background = 'radial-gradient(circle at 30% 30%, ' + skin.head + ', ' + skin.body + ')';
+
+            if (skin.id === currentSkin.id) el.classList.add('selected');
+
+            el.addEventListener('click', function() {
+                currentSkin = skin;
+                var all = document.querySelectorAll('.skin');
+                for (var j = 0; j < all.length; j++) all[j].classList.remove('selected');
+                el.classList.add('selected');
+                // сразу перерисуем змейку в меню
+                if (inMenu) init();
+            });
+
+            skinsEl.appendChild(el);
+        })(SKINS[i]);
+    }
+}
+
+// ============================================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================================
+function init() {
+    // Короткая змейка — 5 сегментов, слева от центра
+    var startX = 3;
+    var startY = 7;
+    snake = [];
+    for (var i = 0; i < START_LENGTH; i++) {
+        snake.push({x: startX - i, y: startY});
+    }
+    // Голова — snake[0], хвост — последний
+
+    prevSnake = snake.map(function(p) { return {x: p.x, y: p.y}; });
+
+    // Начальное направление — вправо
+    dx = 1; dy = 0;
+    nextDx = 1; nextDy = 0;
+
+    score = 0;
+    hud.textContent = '0';
+    isGameOver = false;
+    isPaused = false;
+    moveProgress = 0;
+    stepInterval = STEP_MS;
+    lastMoveTime = Date.now();
+
+    generateFood();
+}
+
+function generateFood() {
+    var tries = 0;
+    while (tries < 1000) {
+        var fx = Math.floor(Math.random() * COLS);
+        var fy = Math.floor(Math.random() * ROWS);
+        var ok = true;
+        for (var i = 0; i < snake.length; i++) {
+            if (snake[i].x === fx && snake[i].y === fy) { ok = false; break; }
+        }
+        if (ok) { food = {x: fx, y: fy}; return; }
+        tries++;
+    }
+    food = {x: 0, y: 0};
+}
+
+// ============================================================
+// ЛОГИКА
+// ============================================================
+function step() {
+    dx = nextDx;
+    dy = nextDy;
+
+    var hx = snake[0].x + dx;
+    var hy = snake[0].y + dy;
+
+    if (hx < 0 || hx >= COLS || hy < 0 || hy >= ROWS) { gameOver(); return; }
+
+    for (var i = 0; i < snake.length - 1; i++) {
+        if (snake[i].x === hx && snake[i].y === hy) { gameOver(); return; }
+    }
+
+    prevSnake = snake.map(function(p) { return {x: p.x, y: p.y}; });
+    snake.unshift({x: hx, y: hy});
+
+    if (hx === food.x && hy === food.y) {
+        score++;
+        hud.textContent = score;
+        generateFood();
+        if (stepInterval > MIN_STEP_MS) stepInterval -= SPEED_UP;
+        prevSnake.push({x: prevSnake[prevSnake.length-1].x, y: prevSnake[prevSnake.length-1].y});
+    } else {
+        snake.pop();
+    }
+}
+
+function gameOver() {
+    isGameOver = true;
+    if (score > best) {
+        best = score;
+        bestEl.textContent = 'Рекорд: ' + best;
+    }
+    goScore.textContent = score;
+    gameoverEl.classList.add('show');
+}
+
+// ============================================================
+// ЦИКЛ
+// ============================================================
+function loop() {
+    var now = Date.now();
+    var dt = now - lastMoveTime;
+
+    if (isStarted && !isGameOver && !isPaused && !inMenu) {
+        if (dt >= stepInterval) {
+            lastMoveTime = now;
+            step();
+            moveProgress = 0;
+        } else {
+            moveProgress = dt / stepInterval;
+        }
+    }
+
+    render();
+    requestAnimationFrame(loop);
+}
+
+// ============================================================
+// РЕНДЕР
+// ============================================================
+function render() {
+    // ФОН
+    for (var i = 0; i < COLS; i++) {
+        for (var j = 0; j < ROWS; j++) {
+            ctx.fillStyle = ((i + j) % 2 === 0) ? COLOR_BG_A : COLOR_BG_B;
+            ctx.fillRect(i * GRID, j * GRID, GRID, GRID);
+        }
+    }
+
+    drawApple(food.x, food.y);
+
+    // ЗМЕЙКА — с интерполяцией
+    var t = ease(moveProgress);
+    var positions = [];
+    for (var i = 0; i < snake.length; i++) {
+        var curr = snake[i];
+        var prev = prevSnake[i] || curr;
+        var px = prev.x + (curr.x - prev.x) * t;
+        var py = prev.y + (curr.y - prev.y) * t;
+        positions.push({x: px * GRID + GRID/2, y: py * GRID + GRID/2});
+    }
+
+    drawSnakeBody(positions);
+    if (positions.length > 0) {
+        drawSnakeHead(positions[0], positions[1] || positions[0]);
+    }
+}
+
+function ease(t) {
+    return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+}
+
+// ------------------------------------------------------------
+// ТЕЛО
+// ------------------------------------------------------------
+function drawSnakeBody(points) {
+    if (points.length < 2) {
+        if (points.length === 1) {
+            ctx.fillStyle = currentSkin.body;
+            ctx.beginPath();
+            ctx.arc(points[0].x, points[0].y, GRID * 0.42, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        return;
+    }
+
+    var thickness = GRID * 0.82;
+
+    // Тень
+    ctx.save();
+    ctx.translate(0, 5);
+    ctx.strokeStyle = currentSkin.shadow;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawSmoothPath(points);
+    ctx.stroke();
+    ctx.restore();
+
+    // Основное тело
+    ctx.strokeStyle = currentSkin.body;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawSmoothPath(points);
+    ctx.stroke();
+
+    // Блик по центру
+    ctx.strokeStyle = currentSkin.shine;
+    ctx.lineWidth = thickness * 0.35;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawSmoothPath(points);
+    ctx.stroke();
+}
+
+function drawSmoothPath(points) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+
+    if (points.length === 2) {
+        ctx.lineTo(points[1].x, points[1].y);
+        return;
+    }
+
+    for (var i = 1; i < points.length - 1; i++) {
+        var midX = (points[i].x + points[i+1].x) / 2;
+        var midY = (points[i].y + points[i+1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+    }
+    var last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
+}
+
+// ------------------------------------------------------------
+// ГОЛОВА
+// ------------------------------------------------------------
+function drawSnakeHead(head, next) {
+    var angle = Math.atan2(head.y - next.y, head.x - next.x);
+    if (!isStarted || inMenu) {
+        angle = 0; // смотрит вправо в меню
+    }
+
+    var headRadius = GRID * 0.55;
+
+    // Тень головы
+    ctx.fillStyle = currentSkin.shadow;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y + 4, headRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(head.x, head.y);
+    ctx.rotate(angle);
+
+    // Голова
+    ctx.fillStyle = currentSkin.head;
+    ctx.beginPath();
+    ctx.arc(0, 0, headRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Блик
+    ctx.fillStyle = currentSkin.shine;
+    ctx.beginPath();
+    ctx.arc(-headRadius * 0.25, -headRadius * 0.3, headRadius * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Глаза
+    var eyeForwardX = headRadius * 0.35;
+    var eyeSideY = headRadius * 0.38;
+    var eyeRadius = headRadius * 0.34;
+    var pupilRadius = eyeRadius * 0.55;
+
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(eyeForwardX, -eyeSideY, eyeRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(eyeForwardX, eyeSideY, eyeRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Зрачки
+    ctx.fillStyle = '#0a1520';
+    ctx.beginPath();
+    ctx.arc(eyeForwardX + pupilRadius * 0.4, -eyeSideY, pupilRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(eyeForwardX + pupilRadius * 0.4, eyeSideY, pupilRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Улыбка
+    var mouthX = headRadius * 0.55;
+    var mouthR = headRadius * 0.55;
+
+    ctx.fillStyle = '#0a2540';
+    ctx.beginPath();
+    ctx.arc(mouthX, 0, mouthR, -Math.PI/2.2, Math.PI/2.2, false);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#0a1520';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(mouthX, 0, mouthR, -Math.PI/2.2, Math.PI/2.2, false);
+    ctx.stroke();
+
+    // Зубки
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(mouthX + mouthR * 0.15, -mouthR * 0.55);
+    ctx.lineTo(mouthX + mouthR * 0.35, -mouthR * 0.55);
+    ctx.lineTo(mouthX + mouthR * 0.25, -mouthR * 0.25);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(mouthX + mouthR * 0.15, mouthR * 0.55);
+    ctx.lineTo(mouthX + mouthR * 0.35, mouthR * 0.55);
+    ctx.lineTo(mouthX + mouthR * 0.25, mouthR * 0.25);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
+// ЯБЛОКО
+// ------------------------------------------------------------
+function drawApple(gx, gy) {
+    var cx = gx * GRID + GRID/2;
+    var cy = gy * GRID + GRID/2 + 2;
+    var r = GRID * 0.42;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 3, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    var grad = ctx.createRadialGradient(cx - r*0.35, cy - r*0.4, r*0.1, cx, cy, r*1.1);
+    grad.addColorStop(0, '#ff5b52');
+    grad.addColorStop(1, '#c0392b');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r*0.35, cy - r*0.4, r*0.25, r*0.18, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#7a4a20';
+    ctx.lineWidth = Math.max(2, r * 0.12);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - r*0.05, cy - r*0.9);
+    ctx.lineTo(cx + r*0.05, cy - r*1.35);
+    ctx.stroke();
+
+    ctx.fillStyle = '#4caf50';
+    ctx.beginPath();
+    ctx.ellipse(cx + r*0.35, cy - r*1.15, r*0.38, r*0.18, Math.PI/5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(0,80,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx + r*0.1, cy - r*1.05);
+    ctx.lineTo(cx + r*0.6, cy - r*1.25);
+    ctx.stroke();
+}
+
+// ============================================================
+// КНОПКИ
+// ============================================================
+document.getElementById('playBtn').addEventListener('click', function() {
+    menu.classList.add('hidden');
+    inMenu = false;
+    isStarted = true;
+    lastMoveTime = Date.now();
+    init(); // пересоздаём змейку короткой
+    lastMoveTime = Date.now();
+});
+
+document.getElementById('retryBtn').addEventListener('click', function() {
+    gameoverEl.classList.remove('show');
+    // возврат в меню — можно менять скин
+    inMenu = true;
+    isStarted = false;
+    menu.classList.remove('hidden');
+    init();
+});
+
+// ============================================================
+// УПРАВЛЕНИЕ
+// ============================================================
+document.addEventListener('keydown', function(e) {
+    var k = e.key;
+
+    if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight' || k === ' ') {
+        e.preventDefault();
+    }
+
+    // Escape — назад в меню
+    if (k === 'Escape') {
+        if (!inMenu) {
+            inMenu = true;
+            isStarted = false;
+            isGameOver = false;
+            gameoverEl.classList.remove('show');
+            menu.classList.remove('hidden');
+            init();
+        }
+        return;
+    }
+
+    // Пробел — пауза
+    if (k === ' ') {
+        if (!inMenu && !isGameOver) {
+            isPaused = !isPaused;
+            if (!isPaused) lastMoveTime = Date.now();
+        }
+        return;
+    }
+
+    if (inMenu || isGameOver) return;
+
+    var ndx = nextDx, ndy = nextDy, handled = false;
+
+    if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ц' || k === 'Ц') {
+        if (dy !== 1) { ndx = 0; ndy = -1; handled = true; }
+    } else if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'ы' || k === 'Ы') {
+        if (dy !== -1) { ndx = 0; ndy = 1; handled = true; }
+    } else if (k === 'ArrowLeft' || k === 'a' || k === 'A' || k === 'ф' || k === 'Ф') {
+        if (dx !== 1) { ndx = -1; ndy = 0; handled = true; }
+    } else if (k === 'ArrowRight' || k === 'd' || k === 'D' || k === 'в' || k === 'В') {
+        if (dx !== -1) { ndx = 1; ndy = 0; handled = true; }
+    }
+
+    if (handled) {
+        nextDx = ndx;
+        nextDy = ndy;
+    }
+});
+
+// ============================================================
+// ЗАПУСК
+// ============================================================
+bestEl.textContent = 'Рекорд: ' + best;
+buildSkins();
+init();
+inMenu = true;
+isStarted = false;
+loop();
+</script>
+
+</body>
+</html>
